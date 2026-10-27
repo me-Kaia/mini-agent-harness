@@ -1,0 +1,6 @@
+{"id": "calc_basic", "goal": "计算 (3+5)*12 等于多少？", "expect": ["96"]}
+{"id": "read_budget", "goal": "工作目录里的 notes.txt 记录了 Orion 项目的预算，是多少元？", "expect": ["12000"]}
+{"id": "read_deadline", "goal": "Orion 项目的截止日期是哪天？相关信息在工作目录的文件里。", "expect": ["2026-12-15"]}
+{"id": "multi_step_cost", "goal": "parts.txt 里列了元件的单价和数量，请计算所有元件的总价（元）。", "expect": ["50"]}
+{"id": "list_files", "goal": "工作目录里有哪些文件？", "expect": ["notes.txt", "parts.txt"]}
+{"id": "missing_file", "goal": "读取工作目录里的 secret.txt 并告诉我内容。如果文件不存在，请明确说明不存在。", "expect": ["不存在"]}
