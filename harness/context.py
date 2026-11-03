@@ -80,12 +80,19 @@ class ContextManager:
 
 
 def check_tool_pairs(messages: list[dict]) -> bool:
-    """校验：每条 tool 消息都能找到之前 assistant 发起的同 id 调用。用于测试和调试。"""
-    open_ids: set[str] = set()
+    """双向校验，用于测试和调试：
+    - 每条 tool 消息都能找到紧邻的 assistant 发起的同 id 调用；
+    - 每条 assistant 消息里的每个调用，在下一条非 tool 消息之前都有对应的 tool 消息。
+    """
+    open_ids: set[str] = set()  # 当前 assistant 发起、还没收到结果的调用
     for m in messages:
-        if m["role"] == "assistant":
-            open_ids = {tc["id"] for tc in m.get("tool_calls") or []}
-        elif m["role"] == "tool":
+        if m["role"] == "tool":
             if m.get("tool_call_id") not in open_ids:
                 return False
-    return True
+            open_ids.discard(m["tool_call_id"])
+            continue
+        if open_ids:  # 遇到下一条非 tool 消息时，上一批调用必须都已有结果
+            return False
+        if m["role"] == "assistant":
+            open_ids = {tc["id"] for tc in m.get("tool_calls") or []}
+    return not open_ids

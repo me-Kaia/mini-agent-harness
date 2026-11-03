@@ -59,6 +59,19 @@ class TestTermination(unittest.TestCase):
         self.assertEqual(state.turn, 3)
         self.assertTrue(check_tool_pairs(state.messages))
 
+    def test_repeated_call_in_multi_tool_response(self):
+        # 同一条回复里有两个调用，第一个触发重复上限，第二个也必须有对应的 tool 消息
+        same = '{"expression": "1+1"}'
+        multi = LLMResponse(tool_calls=[ToolCall("c2", "calculator", same),
+                                        ToolCall("c3", "read_file", '{"path": "notes.txt"}')],
+                            prompt_tokens=100, completion_tokens=20)
+        llm = ScriptedLLM([call("calculator", same, "c0"), call("calculator", same, "c1"), multi])
+        with tempfile.TemporaryDirectory() as d:
+            reg = registry(calculator_tool(), *make_file_tools(d))
+            state = Agent(llm, reg, AgentConfig(max_repeat=2)).run("x")
+        self.assertEqual(state.status, "repeated_call")
+        self.assertTrue(check_tool_pairs(state.messages))
+
 
 class TestToolErrors(unittest.TestCase):
     def test_bad_json_fed_back_then_model_fixes_it(self):
