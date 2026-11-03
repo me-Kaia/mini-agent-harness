@@ -88,6 +88,17 @@ class TestToolErrors(unittest.TestCase):
         self.assertEqual(state.status, "format_errors")
         self.assertIn("缺少必填参数", state.messages[3]["content"])
 
+    def test_format_errors_reset_after_valid_call(self):
+        # 错、对交替出现：每次出错后模型都改对了，不算"连续"出错，不应触发 format_errors
+        script = []
+        for i in range(3):
+            script.append(call("calculator", {"expr": "1"}, cid=f"bad{i}"))
+            script.append(call("calculator", {"expression": "1+1"}, cid=f"ok{i}"))
+        script.append(answer("2"))
+        state = Agent(ScriptedLLM(script), registry(calculator_tool()),
+                      AgentConfig(max_format_errors=3, max_repeat=10)).run("x")
+        self.assertNotEqual(state.status, "format_errors")
+
     def test_unknown_tool(self):
         r = registry(calculator_tool()).execute("rm_rf", "{}")
         self.assertEqual(r.error_type, "unknown_tool")

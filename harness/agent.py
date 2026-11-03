@@ -8,7 +8,7 @@
 3. 累计 token 超过预算                   -> token_budget
 4. 累计耗时超过上限                      -> timeout
 5. 同一个工具 + 同样参数被反复调用        -> repeated_call（死循环防护）
-6. 模型连续给出非法的工具调用             -> format_errors
+6. 模型连续给出非法的工具调用（中间出现一次合法调用就重新计数） -> format_errors
 7. 模型服务本身不可用                     -> llm_error
 
 为什么不只靠 max_turns：轮数上限只能兜底，等它触发时可能已经白白烧了很多 token；
@@ -35,7 +35,7 @@ class AgentConfig:
     token_budget: int = 50_000
     max_seconds: float = 300.0
     max_repeat: int = 2          # 同一指纹最多执行几次，第 max_repeat+1 次直接终止
-    max_format_errors: int = 3   # 非法工具调用（未知工具 / 坏 JSON / 参数不合法）累计上限
+    max_format_errors: int = 3   # 非法工具调用（未知工具 / 坏 JSON / 参数不合法）连续上限，合法调用会清零
 
 
 SYSTEM_PROMPT = (
@@ -132,6 +132,8 @@ class Agent:
                 result = self.tools.execute(tc.name, tc.arguments)
                 if result.error_type in ("unknown_tool", "bad_json", "bad_args"):
                     state.format_errors += 1
+                else:  # 调用格式合法（不论工具执行成功与否）就清零，只统计连续的非法调用
+                    state.format_errors = 0
                 self.tracer.log(state.run_id, "tool_call", turn=state.turn, tool=tc.name, ok=result.ok,
                                 error_type=result.error_type, attempts=result.attempts,
                                 latency_s=round(result.latency_s, 3))
