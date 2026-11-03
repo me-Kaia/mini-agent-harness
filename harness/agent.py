@@ -117,13 +117,16 @@ class Agent:
                 state.final_answer = resp.content
                 return self._finish(state, "completed")
 
-            for tc in resp.tool_calls:
+            for i, tc in enumerate(resp.tool_calls):
                 fp = fingerprint(tc.name, tc.arguments)
                 state.call_counts[fp] = state.call_counts.get(fp, 0) + 1
                 if state.call_counts[fp] > cfg.max_repeat:
-                    # 先补一条 tool 消息再退出，保证存档里的消息序列仍然合法
+                    # 给这次调用和同一条回复里剩下的调用都补上 tool 消息再退出，保证存档里的消息序列仍然合法
                     state.messages.append({"role": "tool", "tool_call_id": tc.id,
                                            "content": "已终止：重复调用同一工具和参数。"})
+                    for rest in resp.tool_calls[i + 1:]:
+                        state.messages.append({"role": "tool", "tool_call_id": rest.id,
+                                               "content": "已终止：同一回复中更早的调用触发了重复调用上限，本调用未执行。"})
                     return self._finish(state, "repeated_call", f"{tc.name} 重复调用")
 
                 result = self.tools.execute(tc.name, tc.arguments)
