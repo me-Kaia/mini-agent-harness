@@ -7,7 +7,7 @@
     python evals/run_eval.py --provider openai --base-url https://api.deepseek.com --model deepseek-chat --api-key $KEY
 
 判定规则：任务正常结束（status=completed）且最终回答包含所有期望关键词，才算成功。
-关键词匹配很粗糙（比如答案写成"1.2 万"就会判错），这是有意的简化，见 README 的"可以继续改进"。
+关键词怎么算"包含"见 judge.py：日期统一格式、数字按完整的数比较。
 """
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ sys.path.insert(0, ROOT)
 
 from harness import Agent, AgentConfig, LLMResponse, OpenAICompatClient, ScriptedLLM, ToolCall, ToolRegistry, Tracer
 from harness.builtin_tools import calculator_tool, make_file_tools
+from judge import judge
 
 
 def mock_policy(messages):
@@ -72,11 +73,11 @@ def main():
         agent = build_agent(args, tracer)
         start = time.monotonic()
         state = agent.run(task["goal"], run_id=task["id"])
-        ok = state.status == "completed" and all(k in state.final_answer for k in task["expect"])
+        ok = state.status == "completed" and judge(state.final_answer, task["expect"])
         statuses[state.status] += 1
         rows.append({"id": task["id"], "ok": ok, "status": state.status, "turns": state.turn,
                      "tokens": state.tokens_used, "seconds": round(time.monotonic() - start, 2),
-                     "answer": state.final_answer[:80]})
+                     "answer": state.final_answer})
         print(f"[{'PASS' if ok else 'FAIL'}] {task['id']:<16} status={state.status:<14} "
               f"turns={state.turn} tokens={state.tokens_used}")
 
