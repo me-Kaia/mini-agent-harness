@@ -37,7 +37,7 @@ harness/
   llm.py            OpenAI 兼容客户端（带退避重试）+ 测试用脚本化模型
   builtin_tools.py  示例工具：安全计算器、限定目录的文件读取
 evals/              评测任务、评测脚本与判定规则（judge.py）
-tests/              28 个单元测试，每个机制都有对应测试
+tests/              35 个单元测试，每个机制都有对应测试
 sample_workspace/   评测用的示例文件
 ```
 

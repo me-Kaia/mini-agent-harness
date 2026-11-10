@@ -9,6 +9,10 @@
 - 数字关键词：把回答里的数一个个提取出来，按数值比较（"50.0" 等于 "50"），不做子串匹配；
 - 其他关键词：普通子串匹配。
 "1.2 万"、"一万二" 这类写法仍然识别不了，见 README 局限。
+
+数学题（GSM8K）在任务里写 "judge": "final_answer"，改用最终答案模式：
+推理过程里会出现大量中间数，按上面的规则只要正确答案出现过一次就会误判为对，
+所以只取最后一个"答案："后面的数比较；没写"答案："的单独算格式错误，不算答错。
 """
 from __future__ import annotations
 
@@ -42,3 +46,40 @@ def matches(answer: str, keyword: str) -> bool:
 
 def judge(answer: str, expected: list[str]) -> bool:
     return all(matches(answer, k) for k in expected)
+
+
+PASS, FAIL, FORMAT_ERROR = "pass", "fail", "format_error"
+
+# "答案：" 或 "答案:"，后面到行尾的内容是最终答案
+_FINAL_ANSWER = re.compile(r"答案\s*[：:]\s*([^\n]*)")
+_SIGNED_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def extract_final_answer(answer: str) -> float | None:
+    """取最后一个"答案："后面的第一个数；去掉逗号，忽略单位和 Markdown 符号。找不到返回 None。"""
+    found = _FINAL_ANSWER.findall(answer)
+    if not found:
+        return None
+    m = _SIGNED_NUMBER.search(re.sub(r"(?<=\d),(?=\d)", "", found[-1]))
+    return float(m[0]) if m else None
+
+
+def judge_final_answer(answer: str, expected: list[str]) -> str:
+    """数学题判分：只看最终答案，不看推理过程里出现过的数。"""
+    value = extract_final_answer(answer)
+    if value is None:
+        return FORMAT_ERROR
+    return PASS if value == float(expected[0].replace(",", "")) else FAIL
+
+
+def grade(answer: str, expected: list[str], mode: str = "keywords") -> str:
+    """按任务指定的模式判分，返回 PASS / FAIL / FORMAT_ERROR。
+
+    - keywords（默认）：回答包含所有期望关键词，见 judge()；
+    - final_answer：只比较最后一个"答案："后面的数；没有"答案："或后面没有数，判为格式错误。
+    """
+    if mode == "keywords":
+        return PASS if judge(answer, expected) else FAIL
+    if mode == "final_answer":
+        return judge_final_answer(answer, expected)
+    raise ValueError(f"未知的判分模式：{mode}")

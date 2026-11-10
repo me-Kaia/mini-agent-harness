@@ -5,7 +5,8 @@
   python evals/make_gsm8k.py --n 100 --seed 0 --out evals/gsm8k_100.jsonl
 
 输入：evals/data/test.jsonl（每行 {"question", "answer"}，answer 最后一行是 "#### 数字"）
-输出：每行 {"id": "gsm8k_<原始行号>", "goal": 题目 + 作答要求, "expect": [标准答案]}
+输出：每行 {"id": "gsm8k_<原始行号>", "goal": 题目 + 作答要求, "expect": [标准答案],
+            "judge": "final_answer"}（判分模式见 judge.py）
 """
 from __future__ import annotations
 
@@ -41,7 +42,8 @@ def main():
             item = items[i]
             task = {"id": f"gsm8k_{i}",
                     "goal": f"{item['question'].strip()}\n{INSTRUCTION}",
-                    "expect": [extract_answer(item["answer"])]}
+                    "expect": [extract_answer(item["answer"])],
+                    "judge": "final_answer"}
             f.write(json.dumps(task, ensure_ascii=False) + "\n")
     print(f"从 {len(items)} 题中抽取 {len(indices)} 题（seed={args.seed}），已写入 {args.out}")
 

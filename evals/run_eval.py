@@ -8,6 +8,8 @@
 
 判定规则：任务正常结束（status=completed）且最终回答包含所有期望关键词，才算成功。
 关键词怎么算"包含"见 judge.py：日期统一格式、数字按完整的数比较。
+任务里写 "judge": "final_answer"（如 GSM8K）时，只比较最后一个"答案："后面的数；
+没写"答案："的记为格式错误（FMT），单独统计，不算答错，但也不计入成功。
 """
 from __future__ import annotations
 
@@ -24,7 +26,7 @@ sys.path.insert(0, ROOT)
 
 from harness import Agent, AgentConfig, LLMResponse, OpenAICompatClient, ScriptedLLM, ToolCall, ToolRegistry, Tracer
 from harness.builtin_tools import calculator_tool, make_file_tools
-from judge import judge
+from judge import FAIL, FORMAT_ERROR, PASS, grade
 
 
 def mock_policy(messages):
@@ -68,29 +70,40 @@ def main():
     tracer = Tracer(os.path.join(ROOT, "runs", f"trace-{stamp}.jsonl"))
     tasks = [json.loads(line) for line in open(args.tasks, encoding="utf-8") if line.strip()]
 
-    rows, statuses = [], Counter()
+    rows, statuses, verdicts = [], Counter(), Counter()
     for task in tasks:
         agent = build_agent(args, tracer)
         start = time.monotonic()
         state = agent.run(task["goal"], run_id=task["id"])
-        ok = state.status == "completed" and judge(state.final_answer, task["expect"])
+        mode = task.get("judge", "keywords")
+        verdict = grade(state.final_answer, task["expect"], mode) if state.status == "completed" else FAIL
+        ok = verdict == PASS
         statuses[state.status] += 1
-        rows.append({"id": task["id"], "ok": ok, "status": state.status, "turns": state.turn,
-                     "tokens": state.tokens_used, "seconds": round(time.monotonic() - start, 2),
-                     "answer": state.final_answer})
-        print(f"[{'PASS' if ok else 'FAIL'}] {task['id']:<16} status={state.status:<14} "
+        verdicts[verdict] += 1
+        rows.append({"id": task["id"], "ok": ok, "verdict": verdict, "judge": mode, "status": state.status,
+                     "turns": state.turn, "tokens": state.tokens_used,
+                     "seconds": round(time.monotonic() - start, 2), "answer": state.final_answer})
+        tag = {PASS: "PASS", FAIL: "FAIL", FORMAT_ERROR: "FMT "}[verdict]
+        print(f"[{tag}] {task['id']:<16} status={state.status:<14} "
               f"turns={state.turn} tokens={state.tokens_used}")
 
     n = len(rows)
+    # 格式遵从率：只统计 final_answer 模式下正常结束、交了回答的运行，其中写了"答案：数字"的比例
+    graded = [r for r in rows if r["judge"] == "final_answer" and r["status"] == "completed"]
+    compliance = round(sum(r["verdict"] != FORMAT_ERROR for r in graded) / len(graded), 3) if graded else None
     summary = {"provider": args.provider, "model": args.model if args.provider == "openai" else "mock",
-               "tasks": n, "success_rate": round(sum(r["ok"] for r in rows) / n, 3),
+               "tasks": n, "success_rate": round(verdicts[PASS] / n, 3),
+               "verdict_counts": {v: verdicts[v] for v in (PASS, FAIL, FORMAT_ERROR)},
+               "format_compliance": compliance,
                "avg_turns": round(sum(r["turns"] for r in rows) / n, 2),
                "avg_tokens": round(sum(r["tokens"] for r in rows) / n, 1),
                "status_counts": dict(statuses), "rows": rows}
     out = os.path.join(ROOT, "runs", f"eval-{stamp}.json")
     with open(out, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
-    print(f"\n成功率 {summary['success_rate']:.0%}  平均轮数 {summary['avg_turns']}  "
+    print(f"\n成功率 {summary['success_rate']:.0%}  答对 {verdicts[PASS]}  答错 {verdicts[FAIL]}  "
+          f"格式错误 {verdicts[FORMAT_ERROR]}  "
+          f"格式遵从率 {'-' if compliance is None else f'{compliance:.0%}'}  平均轮数 {summary['avg_turns']}  "
           f"平均 token {summary['avg_tokens']}  终止原因 {dict(statuses)}")
     print(f"详细结果：{out}")
 
