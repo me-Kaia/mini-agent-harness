@@ -14,9 +14,13 @@ python -m unittest discover -s tests -v
 # 2. 离线评测冒烟（用一个只会算算式的规则"模型"，只验证评测流程能跑通，成功率低是正常的）
 python evals/run_eval.py --provider mock
 
-# 3. 接真实模型跑评测
+# 3. 接真实模型跑评测（Key 从 --key-env 指定的环境变量读取，默认 LLM_API_KEY，不会打印）
 export LLM_API_KEY=你的key
 python evals/run_eval.py --provider openai --base-url https://api.deepseek.com --model deepseek-chat
+
+# GSM8K 50 题，每题跑 3 次，统计平均正确率、pass^3、格式遵从率
+python evals/run_eval.py --provider openai --base-url <OpenAI 兼容地址> --model <模型名> \
+    --key-env KIMI_API_KEY --tasks evals/gsm8k_50.jsonl --trials 3 --temperature 0.7
 
 # 接本地 llama.cpp server（llama-server 默认提供 OpenAI 兼容接口）
 python evals/run_eval.py --provider openai --base-url http://127.0.0.1:8080/v1 --model local
@@ -37,7 +41,7 @@ harness/
   llm.py            OpenAI 兼容客户端（带退避重试）+ 测试用脚本化模型
   builtin_tools.py  示例工具：安全计算器、限定目录的文件读取
 evals/              评测任务、评测脚本与判定规则（judge.py）
-tests/              35 个单元测试，每个机制都有对应测试
+tests/              39 个单元测试，每个机制都有对应测试
 sample_workspace/   评测用的示例文件
 ```
 
