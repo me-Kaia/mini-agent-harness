@@ -19,8 +19,15 @@ export LLM_API_KEY=你的key
 python evals/run_eval.py --provider openai --base-url https://api.deepseek.com --model deepseek-chat
 
 # GSM8K 50 题，每题跑 3 次，统计平均正确率、pass^3、格式遵从率
-python evals/run_eval.py --provider openai --base-url <OpenAI 兼容地址> --model <模型名> \
-    --key-env KIMI_API_KEY --tasks evals/gsm8k_50.jsonl --trials 3 --temperature 0.7
+# 例：Kimi k2.6 非思考模式（temperature/top_p 是平台固定值，传别的会报错；账号限流严，所以加了请求间隔和重试）
+python evals/run_eval.py --provider openai --base-url https://api.moonshot.cn/v1 --model kimi-k2.6 \
+    --key-env KIMI_API_KEY --tasks evals/gsm8k_50.jsonl --trials 3 \
+    --temperature 0.6 --top-p 0.95 --extra-body '{"thinking": {"type": "disabled"}}' \
+    --min-interval 3 --max-retries 5
+
+# 只补跑结果文件里调用失败的那几次（同一题、同一次序号），合并到 <原文件名>-rerun.json
+# 模型和采样参数沿用原结果，限速和重试用本次命令行的值
+python evals/run_eval.py --rerun-errors runs/eval-xxx.json --key-env KIMI_API_KEY --min-interval 10 --max-retries 5
 
 # 接本地 llama.cpp server（llama-server 默认提供 OpenAI 兼容接口）
 python evals/run_eval.py --provider openai --base-url http://127.0.0.1:8080/v1 --model local
@@ -38,10 +45,10 @@ harness/
   tools.py          工具注册：参数校验、超时、按幂等性重试、输出截断
   context.py        上下文压缩：按"轮次单元"取舍，保证工具调用与结果不被拆开
   state.py          运行状态、原子写存档、JSONL 追踪日志
-  llm.py            OpenAI 兼容客户端（带退避重试）+ 测试用脚本化模型
+  llm.py            OpenAI 兼容客户端（429 按 Retry-After 重试、请求限速、额外请求字段）+ 测试用脚本化模型
   builtin_tools.py  示例工具：安全计算器、限定目录的文件读取
 evals/              评测任务、评测脚本与判定规则（judge.py）
-tests/              39 个单元测试，每个机制都有对应测试
+tests/              84 个单元测试，每个机制都有对应测试
 sample_workspace/   评测用的示例文件
 ```
 
@@ -105,6 +112,55 @@ sample_workspace/   评测用的示例文件
 **这个评测集很简单，只用于验证评测流程能跑通**，不能说明模型或 harness 在真实任务上的效果。
 要区分不同模型或 Prompt，需要加入多步推理、带干扰信息、需要从工具错误中恢复的任务。
 
+### GSM8K 50 题 × 3 次：DeepSeek vs Kimi（2026-11-11）
+
+**为什么 DeepSeek 要重跑。** 2026-11-10 的 DeepSeek 评测用的是 temperature 0.7（结果保留在
+`runs/eval-20261110-152027*.json`）。这次接入 Kimi k2.6 时查了官方"模型参数参考"：k2.6 的采样参数是平台固定值，
+非思考模式 temperature 固定 0.6、top_p 固定 0.95，传其他值会直接报错。两个模型的采样参数不同就不能直接比，
+所以 DeepSeek 按同样的 temperature 0.6、top_p 0.95 重跑了一遍。
+
+| 指标 | DeepSeek t=0.7（旧，仅参考） | DeepSeek t=0.6 | Kimi k2.6 t=0.6 |
+|---|---|---|---|
+| 模型 / 采样参数 | deepseek-chat，未设 top_p | deepseek-chat，top_p 0.95 | kimi-k2.6 非思考，top_p 0.95 |
+| 平均正确率（原始口径） | 96.6% | 95.3% | 97.3% |
+| pass^3（原始口径） | 96.0% | 94.0% | 96.0% |
+| **平均正确率（修正后，49 题）** | 100.0% | **99.3%** | **99.3%** |
+| **pass^3（修正后）** | 100.0% | **98.0%** | **98.0%** |
+| 修正后答错 | 0 | 1（gsm8k_161 第 2 次） | 1（gsm8k_209 第 1 次） |
+| 格式遵从率 | 100% | 100% | 100% |
+| 调用失败（首跑 → 补跑后） | 1（未补跑） | 2 → 0 | 24 → 0（补跑两轮） |
+| 平均轮数 | 1.71 | 1.68 | 1.85 |
+| 平均 token / 次运行（不可比，见下） | 1005 | 990 | 725 |
+| 无重试调用的中位延迟（不可比，见下） | 2.4s | 3.0s | 8.9s |
+| 重试次数 / 退避和限速等待 | 未记录 | 1 次 / 19s | 260 次 / 1198s |
+
+结果文件：`runs/eval-20261111-145028-rerun.json`（DeepSeek 0.6）、`runs/eval-20261111-145932-rerun-rerun.json`（Kimi，
+补跑了两轮：第一轮 24 次里 23 次成功，剩下 1 次第二轮补上）。补跑前的原始结果是去掉 `-rerun` 的同名文件；
+每轮补跑了哪几次、用的什么限速设置记在结果的 `rerun_rounds` 字段里，被替换的行带 `rerun` 标记。
+`runs/` 不进版本库，这些文件只在本地。
+
+**怎么读这张表：**
+- **准确率上两个模型打平**：修正后都是 99.3% / 98.0%，各错 1 次，且都不是同一题的稳定错误（另外两次都答对了）。
+  50 题 × 3 次的样本量下，0.7 和 0.6 的差别（100% vs 99.3%）也只是 1 次运行的差别，不能说明温度有影响。
+- **原始口径的差别来自标注问题**：gsm8k_255 题目自相矛盾，DeepSeek 0.6 的 3 次答案是 176、176、96（两次按"20 个牛棚"，
+  一次算错），Kimi 3 次都按"10 个牛棚"得 192，正好和标准答案一致，所以 Kimi 原始口径高出 2 个百分点；
+  修正后（这题不计入）差距消失。
+
+**token 和延迟不能用来判断谁更省、谁更快。** 表里列出这两项只是记录，不据此下结论：
+- **token：tokenizer 差异未核实。** token 数是两家接口各自返回的用量，两家用的 tokenizer 不同。
+  Kimi 输入 9.0 万 vs DeepSeek 13.1 万、输出 2.7 万 vs 1.8 万，这个差别有多少来自 tokenizer、多少来自模型行为，没有核实；
+  两家单价也不同，token 数不能换算成谁更省。
+- **延迟：Kimi 使用未充值账号、存在限流。** Kimi 平台按累计充值金额分级限流，这次用的是未充值账号，
+  串行请求、间隔 3 秒仍有大量 429（首跑 16% 的运行重试 5 次后仍失败，改成间隔 10 秒补跑才全部补上）。
+  限流状态下的延迟不代表模型本身的速度，DeepSeek 也没有在同等限流条件下测过，所以不比较谁更快。
+
+**耗时口径。** 每次运行的 `seconds` 不含退避和限速等待（单独记在 `wait_seconds`）。但 Kimi 被 429 拒绝的请求本身也要
+约 10 秒才返回，这部分仍算在请求时间里，所以表里列的是"没有重试的调用的中位延迟"，平均耗时没有列。
+旧的 DeepSeek 结果（0.7 和 0.6 的首跑）是改动前的代码跑的，`seconds` 是墙钟时间、没有重试记录。
+
+**成本（Kimi）。** 实际消耗约 9.0 万输入 token、2.7 万输出 token（含补跑；不含 2 题试跑和中途崩溃的那次首跑），
+按 ¥6.5 / ¥27 每百万 token 估算约 ¥1.3。这个单价来自第三方整理，没有在 platform.kimi.com 上核实。
+
 ## 已知局限（面试时要能主动说出来）
 
 1. **超时用线程实现，超时后线程仍在后台运行**，Python 线程无法被强制终止。生产环境应把工具放进子进程或沙箱执行，超时直接杀进程。
@@ -114,6 +170,8 @@ sample_workspace/   评测用的示例文件
 5. **评测仍然靠关键词判断对错**。日期会统一成 YYYY-MM-DD、数字按完整的数比较（`evals/judge.py`），
    但"1.2 万""一万二"这类写法、同义表述仍然识别不了。
 6. **工具串行执行**，没有并发调用。
+7. **模型调用的耗时包含失败尝试本身的时间**：`latency_s` 是各次尝试的请求时间之和（不含退避等待），
+   被 429 拒绝的请求如果返回得慢，仍会拉高耗时。更准确的做法是单独记录成功那次请求的时间。
 
 ## 可以继续改进的方向
 

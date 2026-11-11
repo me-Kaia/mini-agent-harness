@@ -1,0 +1,2 @@
+{"id": "gsm8k_1309", "issue": "wrong_label", "action": "relabel", "original_expect": ["2280"], "expect": ["2180"], "reason": "标注错误：标准解法把 Sarah 的 300 误写成 400（750+430+400+700=2280），正确应为 750+430+300+700=2180"}
+{"id": "gsm8k_255", "issue": "contradictory", "action": "exclude", "original_expect": ["192"], "reason": "题目自相矛盾：先说 ten stalls，又说 each of the twenty stalls；按 10 个牛棚得 192，按 20 个牛棚得 176"}

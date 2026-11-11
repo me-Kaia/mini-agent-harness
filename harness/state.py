@@ -19,7 +19,9 @@ class RunState:
     messages: list[dict]
     turn: int = 0
     tokens_used: int = 0
-    elapsed_s: float = 0.0
+    elapsed_s: float = 0.0       # 运行耗时，不含模型调用的退避和限速等待
+    llm_retries: int = 0         # 模型调用累计重试次数
+    wait_s: float = 0.0          # 模型调用累计退避和限速等待时间
     format_errors: int = 0
     call_counts: dict[str, int] = field(default_factory=dict)  # 工具调用指纹 -> 次数
     status: str = "running"  # running / completed / max_turns / token_budget / timeout / ...

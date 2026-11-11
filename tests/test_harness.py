@@ -73,6 +73,44 @@ class TestTermination(unittest.TestCase):
         self.assertTrue(check_tool_pairs(state.messages))
 
 
+class TestLLMWaitAccounting(unittest.TestCase):
+    """模型调用的重试次数和退避/限速等待时间单独累计；耗时和超时都不算等待时间。"""
+
+    def test_retries_and_wait_accumulate(self):
+        r1 = call("calculator", {"expression": "2*21"})
+        r1.retries, r1.wait_s = 2, 30.0
+        r2 = answer("42")
+        r2.retries, r2.wait_s = 1, 10.0
+        state = Agent(ScriptedLLM([r1, r2]), registry(calculator_tool())).run("x")
+        self.assertEqual(state.status, "completed")
+        self.assertEqual((state.llm_retries, state.wait_s), (3, 40.0))
+
+    def test_wait_not_counted_toward_timeout(self):
+        # 限流等待不是模型或工具慢，不应触发超时、被判答错
+        def slow(messages):
+            time.sleep(0.05)  # 模拟真的等了一段时间
+            resp = answer("done") if messages[-1]["role"] == "tool" else call("calculator", {"expression": "1+1"})
+            resp.wait_s = 0.05
+            return resp
+        state = Agent(ScriptedLLM(slow), registry(calculator_tool()), AgentConfig(max_seconds=0.08)).run("x")
+        self.assertEqual(state.status, "completed")
+        self.assertLess(state.elapsed_s, 0.08)
+
+    def test_llm_error_retries_are_recorded(self):
+        from harness.llm import LLMError
+
+        def fail(messages):
+            raise LLMError("429", retries=3, wait_s=70.0)
+        state = Agent(ScriptedLLM(fail), registry(calculator_tool())).run("x")
+        self.assertEqual(state.status, "llm_error")
+        self.assertEqual((state.llm_retries, state.wait_s), (3, 70.0))
+
+    def test_old_checkpoint_without_new_fields_loads(self):
+        from harness.state import RunState
+        state = RunState.from_dict({"run_id": "r", "messages": [], "elapsed_s": 1.0})
+        self.assertEqual((state.llm_retries, state.wait_s), (0, 0.0))
+
+
 class TestToolErrors(unittest.TestCase):
     def test_bad_json_fed_back_then_model_fixes_it(self):
         llm = ScriptedLLM([call("calculator", "{expression: 1+1"), call("calculator", {"expression": "1+1"}, "c2"),

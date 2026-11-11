@@ -84,9 +84,11 @@ class Agent:
     # ---------- 主循环 ----------
     def _loop(self, state: RunState) -> RunState:
         cfg = self.config
-        start = time.monotonic() - state.elapsed_s  # 恢复时接着之前的耗时算
+        # 耗时 = 墙钟时间 - 退避和限速等待：限流等待不是模型或工具慢，不应计入耗时、也不应触发超时。
+        # 恢复时接着之前的耗时和等待时间算
+        start = time.monotonic() - state.elapsed_s - state.wait_s
         while True:
-            state.elapsed_s = time.monotonic() - start
+            state.elapsed_s = time.monotonic() - start - state.wait_s
             reason = self._limit_reached(state)
             if reason:
                 return self._finish(state, reason)
@@ -98,10 +100,17 @@ class Agent:
             try:
                 resp = self.llm.chat(state.messages, tools=self.tools.schemas())
             except LLMError as e:
+                state.llm_retries += getattr(e, "retries", 0)
+                state.wait_s += getattr(e, "wait_s", 0.0)
+                state.elapsed_s = time.monotonic() - start - state.wait_s
                 return self._finish(state, "llm_error", str(e))
             state.turn += 1
             state.tokens_used += resp.prompt_tokens + resp.completion_tokens
+            state.llm_retries += resp.retries
+            state.wait_s += resp.wait_s
+            state.elapsed_s = time.monotonic() - start - state.wait_s
             self.tracer.log(state.run_id, "llm_call", turn=state.turn, latency_s=round(resp.latency_s, 3),
+                            retries=resp.retries, wait_s=round(resp.wait_s, 3),
                             prompt_tokens=resp.prompt_tokens, completion_tokens=resp.completion_tokens,
                             tool_calls=[tc.name for tc in resp.tool_calls])
 
@@ -157,7 +166,8 @@ class Agent:
     def _finish(self, state: RunState, status: str, detail: str = "") -> RunState:
         state.status = status
         self.tracer.log(state.run_id, "stop", status=status, detail=detail, turn=state.turn,
-                        tokens=state.tokens_used, elapsed_s=round(state.elapsed_s, 3))
+                        tokens=state.tokens_used, elapsed_s=round(state.elapsed_s, 3),
+                        llm_retries=state.llm_retries, wait_s=round(state.wait_s, 3))
         if self.checkpointer:
             self.checkpointer.save(state)
         return state
