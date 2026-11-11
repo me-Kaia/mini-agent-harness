@@ -1,0 +1,422 @@
+{
+  "tasks_file": "evals/gsm8k_50.jsonl",
+  "label_issues_file": "evals/gsm8k_label_issues.jsonl",
+  "runs": {
+    "deepseek-t0.7": {
+      "title": "DeepSeek deepseek-chat t=0.7（2026-11-10，旧，仅参考）",
+      "settings": {
+        "provider": "openai",
+        "model": "deepseek-chat",
+        "base_url": "https://api.deepseek.com",
+        "temperature": 0.7,
+        "trials": 3
+      },
+      "raw": {
+        "tasks": 50,
+        "runs": 150,
+        "mean_accuracy": 0.966,
+        "pass_all": 0.96,
+        "format_compliance": 1.0,
+        "error_count": 1,
+        "error_rate": 0.007,
+        "verdict_counts": {
+          "pass": 144,
+          "fail": 5,
+          "format_error": 0,
+          "error": 1
+        },
+        "avg_tokens": 1004.7,
+        "avg_seconds": 5.78,
+        "avg_turns": 1.71,
+        "status_counts": {
+          "completed": 149,
+          "llm_error": 1
+        }
+      },
+      "corrected": {
+        "tasks": 49,
+        "runs": 147,
+        "mean_accuracy": 1.0,
+        "pass_all": 1.0,
+        "format_compliance": 1.0,
+        "error_count": 1,
+        "error_rate": 0.007,
+        "verdict_counts": {
+          "pass": 146,
+          "fail": 0,
+          "format_error": 0,
+          "error": 1
+        },
+        "avg_tokens": 1003.0,
+        "avg_seconds": 5.79,
+        "avg_turns": 1.71,
+        "status_counts": {
+          "completed": 146,
+          "llm_error": 1
+        }
+      },
+      "label_corrections": [
+        {
+          "id": "gsm8k_255",
+          "issue": "contradictory",
+          "action": "exclude",
+          "original_expect": [
+            "192"
+          ],
+          "reason": "题目自相矛盾：先说 ten stalls，又说 each of the twenty stalls；按 10 个牛棚得 192，按 20 个牛棚得 176"
+        },
+        {
+          "id": "gsm8k_1309",
+          "issue": "wrong_label",
+          "action": "relabel",
+          "original_expect": [
+            "2280"
+          ],
+          "expect": [
+            "2180"
+          ],
+          "reason": "标注错误：标准解法把 Sarah 的 300 误写成 400（750+430+400+700=2280），正确应为 750+430+300+700=2180"
+        }
+      ],
+      "first_pass_error_count": 1,
+      "rerun_rounds": []
+    },
+    "deepseek-t0.6": {
+      "title": "DeepSeek deepseek-chat t=0.6 top_p=0.95",
+      "settings": {
+        "provider": "openai",
+        "model": "deepseek-chat",
+        "base_url": "https://api.deepseek.com",
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "extra_body": {},
+        "trials": 3
+      },
+      "raw": {
+        "tasks": 50,
+        "runs": 150,
+        "mean_accuracy": 0.953,
+        "pass_all": 0.94,
+        "format_compliance": 1.0,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "verdict_counts": {
+          "pass": 143,
+          "fail": 7,
+          "format_error": 0,
+          "error": 0
+        },
+        "avg_tokens": 990.1,
+        "avg_seconds": 7.01,
+        "avg_turns": 1.68,
+        "status_counts": {
+          "completed": 150
+        },
+        "total_retries": 1,
+        "runs_with_retries": 1,
+        "total_wait_seconds": 19.1
+      },
+      "corrected": {
+        "tasks": 49,
+        "runs": 147,
+        "mean_accuracy": 0.993,
+        "pass_all": 0.98,
+        "format_compliance": 1.0,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "verdict_counts": {
+          "pass": 146,
+          "fail": 1,
+          "format_error": 0,
+          "error": 0
+        },
+        "avg_tokens": 989.5,
+        "avg_seconds": 7.03,
+        "avg_turns": 1.69,
+        "status_counts": {
+          "completed": 147
+        },
+        "total_retries": 1,
+        "runs_with_retries": 1,
+        "total_wait_seconds": 19.1
+      },
+      "label_corrections": [
+        {
+          "id": "gsm8k_255",
+          "issue": "contradictory",
+          "action": "exclude",
+          "original_expect": [
+            "192"
+          ],
+          "reason": "题目自相矛盾：先说 ten stalls，又说 each of the twenty stalls；按 10 个牛棚得 192，按 20 个牛棚得 176"
+        },
+        {
+          "id": "gsm8k_1309",
+          "issue": "wrong_label",
+          "action": "relabel",
+          "original_expect": [
+            "2280"
+          ],
+          "expect": [
+            "2180"
+          ],
+          "reason": "标注错误：标准解法把 Sarah 的 300 误写成 400（750+430+400+700=2280），正确应为 750+430+300+700=2180"
+        }
+      ],
+      "first_pass_error_count": 2,
+      "rerun_rounds": [
+        {
+          "settings": {
+            "min_interval": 10.0,
+            "max_retries": 5
+          },
+          "reruns": [
+            {
+              "id": "gsm8k_198",
+              "trial": 3,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_778",
+              "trial": 1,
+              "verdict": "pass"
+            }
+          ]
+        }
+      ]
+    },
+    "kimi-k2.6-t0.6": {
+      "title": "Kimi kimi-k2.6 非思考 t=0.6 top_p=0.95",
+      "settings": {
+        "provider": "openai",
+        "model": "kimi-k2.6",
+        "base_url": "https://api.moonshot.cn/v1",
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "extra_body": {
+          "thinking": {
+            "type": "disabled"
+          }
+        },
+        "max_retries": 5,
+        "min_interval": 3.0,
+        "trials": 3
+      },
+      "raw": {
+        "tasks": 50,
+        "runs": 150,
+        "mean_accuracy": 0.973,
+        "pass_all": 0.96,
+        "format_compliance": 1.0,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "verdict_counts": {
+          "pass": 146,
+          "fail": 4,
+          "format_error": 0,
+          "error": 0
+        },
+        "avg_tokens": 725.0,
+        "avg_seconds": 30.14,
+        "avg_turns": 1.85,
+        "status_counts": {
+          "completed": 150
+        },
+        "total_retries": 260,
+        "runs_with_retries": 86,
+        "total_wait_seconds": 1198.2
+      },
+      "corrected": {
+        "tasks": 49,
+        "runs": 147,
+        "mean_accuracy": 0.993,
+        "pass_all": 0.98,
+        "format_compliance": 1.0,
+        "error_count": 0,
+        "error_rate": 0.0,
+        "verdict_counts": {
+          "pass": 146,
+          "fail": 1,
+          "format_error": 0,
+          "error": 0
+        },
+        "avg_tokens": 699.1,
+        "avg_seconds": 28.92,
+        "avg_turns": 1.82,
+        "status_counts": {
+          "completed": 147
+        },
+        "total_retries": 255,
+        "runs_with_retries": 85,
+        "total_wait_seconds": 1161.2
+      },
+      "label_corrections": [
+        {
+          "id": "gsm8k_255",
+          "issue": "contradictory",
+          "action": "exclude",
+          "original_expect": [
+            "192"
+          ],
+          "reason": "题目自相矛盾：先说 ten stalls，又说 each of the twenty stalls；按 10 个牛棚得 192，按 20 个牛棚得 176"
+        },
+        {
+          "id": "gsm8k_1309",
+          "issue": "wrong_label",
+          "action": "relabel",
+          "original_expect": [
+            "2280"
+          ],
+          "expect": [
+            "2180"
+          ],
+          "reason": "标注错误：标准解法把 Sarah 的 300 误写成 400（750+430+400+700=2280），正确应为 750+430+300+700=2180"
+        }
+      ],
+      "first_pass_error_count": 24,
+      "rerun_rounds": [
+        {
+          "settings": {
+            "min_interval": 10.0,
+            "max_retries": 5
+          },
+          "reruns": [
+            {
+              "id": "gsm8k_189",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_191",
+              "trial": 3,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_318",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_318",
+              "trial": 3,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_407",
+              "trial": 3,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_457",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_501",
+              "trial": 3,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_563",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_600",
+              "trial": 3,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_689",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_689",
+              "trial": 2,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_689",
+              "trial": 3,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_696",
+              "trial": 3,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_735",
+              "trial": 2,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_859",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_864",
+              "trial": 2,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_940",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_1034",
+              "trial": 2,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_1098",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_1130",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_1149",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_1206",
+              "trial": 1,
+              "verdict": "pass"
+            },
+            {
+              "id": "gsm8k_1206",
+              "trial": 3,
+              "verdict": "error"
+            },
+            {
+              "id": "gsm8k_1287",
+              "trial": 3,
+              "verdict": "pass"
+            }
+          ]
+        },
+        {
+          "settings": {
+            "min_interval": 10.0,
+            "max_retries": 5
+          },
+          "reruns": [
+            {
+              "id": "gsm8k_1206",
+              "trial": 3,
+              "verdict": "pass"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

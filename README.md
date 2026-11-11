@@ -115,7 +115,7 @@ sample_workspace/   评测用的示例文件
 ### GSM8K 50 题 × 3 次：DeepSeek vs Kimi（2026-11-11）
 
 **为什么 DeepSeek 要重跑。** 2026-11-10 的 DeepSeek 评测用的是 temperature 0.7（结果保留在
-`runs/eval-20261110-152027*.json`）。这次接入 Kimi k2.6 时查了官方"模型参数参考"：k2.6 的采样参数是平台固定值，
+[evals/results/](evals/results/) 里，文件名带 `deepseek-t0.7`）。这次接入 Kimi k2.6 时查了官方"模型参数参考"：k2.6 的采样参数是平台固定值，
 非思考模式 temperature 固定 0.6、top_p 固定 0.95，传其他值会直接报错。两个模型的采样参数不同就不能直接比，
 所以 DeepSeek 按同样的 temperature 0.6、top_p 0.95 重跑了一遍。
 
@@ -134,10 +134,15 @@ sample_workspace/   评测用的示例文件
 | 无重试调用的中位延迟（不可比，见下） | 2.4s | 3.0s | 8.9s |
 | 重试次数 / 退避和限速等待 | 未记录 | 1 次 / 19s | 260 次 / 1198s |
 
-结果文件：`runs/eval-20261111-145028-rerun.json`（DeepSeek 0.6）、`runs/eval-20261111-145932-rerun-rerun.json`（Kimi，
-补跑了两轮：第一轮 24 次里 23 次成功，剩下 1 次第二轮补上）。补跑前的原始结果是去掉 `-rerun` 的同名文件；
-每轮补跑了哪几次、用的什么限速设置记在结果的 `rerun_rounds` 字段里，被替换的行带 `rerun` 标记。
-`runs/` 不进版本库，这些文件只在本地。
+结果文件（[evals/results/](evals/results/)）：
+- [summary.json](evals/results/summary.json)：三次评测的设置、原始口径和修正后口径的汇总指标、标注修正说明，
+  以及每轮补跑了哪几次、用的什么限速设置（`rerun_rounds`）。Kimi 补跑了两轮：第一轮 24 次里 23 次成功，剩下 1 次第二轮补上。
+- 每题每次的判定：[DeepSeek t=0.6](evals/results/deepseek-t0.6-verdicts.csv)、
+  [Kimi k2.6 t=0.6](evals/results/kimi-k2.6-t0.6-verdicts.csv)、[DeepSeek t=0.7（旧）](evals/results/deepseek-t0.7-verdicts.csv)。
+  `rerun` 列为 yes 的是补跑替换进来的结果，`corrected_verdict` 为 excluded 的是修正后口径不计入的题。
+- [failures.md](evals/results/failures.md)：三次评测里所有答错（原始口径或修正后口径）的运行，附题目和完整回答。
+
+"无重试调用的中位延迟"和 token 的输入 / 输出拆分来自本地的 trace 日志（`runs/`，不进版本库），没有放进上面的文件。
 
 **怎么读这张表：**
 - **准确率上两个模型打平**：修正后都是 99.3% / 98.0%，各错 1 次，且都不是同一题的稳定错误（另外两次都答对了）。
